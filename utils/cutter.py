@@ -1,4 +1,4 @@
-from moviepy.editor import VideoFileClip
+from moviepy import VideoFileClip
 from config import SHORT_DURATION
 
 def cortar_trecho(video_path, inicio=10):
