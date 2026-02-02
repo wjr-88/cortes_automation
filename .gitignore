@@ -1,0 +1,18 @@
+# Ambiente virtual
+venv/
+.env
+
+# Python
+__pycache__/
+*.pyc
+
+# Outputs / gerados automaticamente
+roteiros/
+outputs/
+*.mp4
+*.wav
+*.mp3
+
+# IDE
+.vscode/
+.idea/
