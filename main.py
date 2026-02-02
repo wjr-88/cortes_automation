@@ -1,120 +1,106 @@
+# main.py
+
 import os
 
 from utils.downloader import baixar_video
-from utils.cutter import cortar_trecho
-from utils.transcriber import transcrever_video
-from utils.game_analysis import extrair_sinais, interpretar_jogo
+from utils.transcriber import transcrever_audio
+from utils.game_analysis import analisar_contexto, interpretar_jogo
 from utils.script_generator import gerar_roteiro
-from utils.narration import gerar_narracao
-from utils.audio_rules import aplicar_regras_audio
-from utils.video import criar_short
+from utils.cutter import cortar_trecho
+from utils.video import (
+    remover_audio,
+    adicionar_musica_fundo,
+    manter_audio_original
+)
+
+# =========================
+# CONFIGURAÇÕES BÁSICAS
+# =========================
+PASTA_VIDEOS = "videos"
+PASTA_OUTPUT = "output"
+PASTA_ROTEIROS = "roteiros"
+MUSICA_FUNDO = "assets/musica_fundo.mp3"  # ajuste depois
 
 
-# ============================
-# CONFIGURAÇÕES GERAIS
-# ============================
+# =========================
+# PIPELINE PRINCIPAL
+# =========================
+def processar_video(url, tipo_video):
+    """
+    Pipeline principal de processamento do vídeo
+    """
 
-MUSICA_PADRAO = "inputs/musicas/musica1.mp3"
+    os.makedirs(PASTA_VIDEOS, exist_ok=True)
+    os.makedirs(PASTA_OUTPUT, exist_ok=True)
+    os.makedirs(PASTA_ROTEIROS, exist_ok=True)
 
-PASTA_AUDIOS = "outputs/audios"
-PASTA_SHORTS = "outputs/shorts"
+    print("\n📥 Baixando vídeo...")
+    video_path = baixar_video(url, PASTA_VIDEOS)
 
-os.makedirs(PASTA_AUDIOS, exist_ok=True)
-os.makedirs(PASTA_SHORTS, exist_ok=True)
+    print("🎧 Transcrevendo áudio...")
+    transcricao = transcrever_audio(video_path)
+
+    segmentos = transcricao["segments"]
+
+    print("🧠 Analisando contexto do jogo...")
+    sinais = analisar_contexto(segmentos)
+    contexto_jogo = interpretar_jogo(sinais)
+
+    print(f"📊 Contexto detectado: {contexto_jogo}")
+
+    print("✍️ Gerando roteiro automático...")
+    roteiro = gerar_roteiro(contexto_jogo, tipo_video)
+
+    nome_base = os.path.splitext(os.path.basename(video_path))[0]
+
+    roteiro_path = os.path.join(PASTA_ROTEIROS, f"{nome_base}.txt")
+    with open(roteiro_path, "w", encoding="utf-8") as f:
+        f.write(roteiro)
+
+    print(f"📝 Roteiro salvo em: {roteiro_path}")
+
+    print("✂️ Gerando corte para Short...")
+    short_path = cortar_trecho(
+        video_path=video_path,
+        inicio=0,
+        duracao=60,
+        output_dir=PASTA_OUTPUT
+    )
+
+    print("🎬 Tratando áudio do vídeo...")
+    if tipo_video == "melhores_momentos":
+        short_sem_audio = remover_audio(short_path)
+        short_final = adicionar_musica_fundo(short_sem_audio, MUSICA_FUNDO)
+    else:
+        short_final = manter_audio_original(short_path)
+
+    print(f"\n✅ Vídeo final gerado com sucesso:")
+    print(short_final)
 
 
-# ============================
-# EXECUÇÃO PRINCIPAL
-# ============================
-
+# =========================
+# EXECUÇÃO INTERATIVA
+# =========================
 if __name__ == "__main__":
 
-    print("\n=== GERADOR DE VÍDEOS - CRUZEIRO ===\n")
+    print("\n==============================")
+    print("🎬 AUTOMAÇÃO DE SHORTS - CRUZEIRO")
+    print("==============================\n")
 
-    # --------------------------------
-    # Entrada do usuário
-    # --------------------------------
     url = input("Cole o link do vídeo do YouTube: ").strip()
 
-    video_tipo = input(
-        "Tipo de vídeo? (highlights / commentary): "
-    ).strip().lower()
+    print("\nTipo de vídeo:")
+    print("1 - Melhores momentos (sem áudio + música)")
+    print("2 - Jornalístico / Comentários (mantém áudio)")
 
-    if video_tipo not in ["highlights", "commentary"]:
-        raise ValueError("Tipo inválido. Use 'highlights' ou 'commentary'.")
+    tipo = input("Escolha (1 ou 2): ").strip()
 
-    # --------------------------------
-    # 1️⃣ Download do vídeo
-    # --------------------------------
-    print("\n📥 Baixando vídeo...")
-    video_path = baixar_video(url)
+    if tipo == "1":
+        tipo_video = "melhores_momentos"
+    elif tipo == "2":
+        tipo_video = "jornalismo"
+    else:
+        print("❌ Opção inválida. Encerrando.")
+        exit(1)
 
-    # --------------------------------
-    # 2️⃣ Corte base do vídeo
-    # (por enquanto fixo, depois automatizamos)
-    # --------------------------------
-    print("✂️ Cortando trecho do vídeo...")
-    clip = cortar_trecho(video_path, inicio=15)
-
-    # --------------------------------
-    # 3️⃣ Extração de áudio (para análise)
-    # --------------------------------
-    print("🔊 Extraindo áudio para análise...")
-    audio_temp_path = os.path.join(PASTA_AUDIOS, "audio_temp.wav")
-    clip.audio.write_audiofile(audio_temp_path, logger=None)
-
-    # --------------------------------
-    # 4️⃣ Transcrição (Whisper)
-    # --------------------------------
-    print("🧠 Transcrevendo áudio...")
-    segmentos = transcrever_video(audio_temp_path)
-
-    # --------------------------------
-    # 5️⃣ Análise do jogo / contexto
-    # --------------------------------
-    print("⚽ Analisando contexto...")
-    sinais = extrair_sinais(segmentos)
-    contexto = interpretar_jogo(sinais)
-
-    print(f"📊 Sinais detectados: {sinais}")
-    print(f"📌 Contexto interpretado: {contexto}")
-
-    # --------------------------------
-    # 6️⃣ Geração de roteiro e narração
-    # (somente para highlights)
-    # --------------------------------
-    narracao_path = None
-
-    if video_tipo == "highlights":
-        print("✍️ Gerando roteiro automático...")
-        roteiro = gerar_roteiro(contexto)
-
-        print("🎙️ Gerando narração IA...")
-        narracao_path = gerar_narracao(roteiro)
-
-    # --------------------------------
-    # 7️⃣ Aplicação das regras de áudio
-    # --------------------------------
-    print("🔊 Aplicando regras de áudio...")
-    clip_processado, audio_tracks = aplicar_regras_audio(
-        clip=clip,
-        video_tipo=video_tipo,
-        narracao_path=narracao_path,
-        musica_path=MUSICA_PADRAO if video_tipo == "highlights" else None
-    )
-
-    # --------------------------------
-    # 8️⃣ Renderização final do vídeo
-    # --------------------------------
-    print("🎬 Renderizando vídeo final...")
-    output_path = os.path.join(PASTA_SHORTS, "short_cruzeiro.mp4")
-
-    criar_short(
-        clip=clip_processado,
-        output_path=output_path,
-        audio_tracks=audio_tracks,
-        titulo="Cruzeiro hoje ⚽"
-    )
-
-    print("\n✅ Vídeo gerado com sucesso!")
-    print(f"📂 Arquivo final: {output_path}")
+    processar_video(url, tipo_video)

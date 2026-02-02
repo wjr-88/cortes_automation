@@ -1,4 +1,9 @@
-def extrair_sinais(segmentos):
+# utils/game_analysis.py
+
+def analisar_contexto(segmentos):
+    """
+    Analisa os textos transcritos e extrai sinais do jogo
+    """
     sinais = {
         "gol": 0,
         "pressao": 0,
@@ -25,13 +30,16 @@ def extrair_sinais(segmentos):
 
 
 def interpretar_jogo(sinais):
+    """
+    Interpreta o contexto geral do jogo a partir dos sinais
+    """
     if sinais["gol"] >= 2 and sinais["pressao"] == 0:
-        return "vitoria_controlada"
+        return "vitória controlada"
 
     if sinais["gol"] >= 1 and sinais["pressao"] >= 1:
-        return "vitoria_sofrida"
+        return "vitória sofrida"
 
     if sinais["gol"] == 0 and sinais["pressao"] >= 2:
-        return "pressao_sem_resultado"
+        return "pressão sem resultado"
 
-    return "jogo_equilibrado"
+    return "jogo equilibrado"
